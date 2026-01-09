@@ -1,0 +1,28 @@
+# Entornos Virtuales
+venv/
+.venv/
+env/
+
+# Variables de Entorno y Secretos (CRÍTICO)
+.env
+.env.local
+**/backend/.env
+
+# Base de Datos Local
+*.db
+*.sqlite
+*.sqlite3
+local_dev.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDEs / Editores
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log

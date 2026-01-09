@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetaGen</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar glass">
+            <div class="brand">
+                <h1>MetaGen</h1>
+            </div>
+
+            <button id="btn-new" class="btn-primary-gradient">
+                <i class="fas fa-plus"></i> News metatags
+            </button>
+
+            <div class="history-section">
+                <h3>Historial</h3>
+                <ul id="history-list">
+                    <!-- History items will be injected here -->
+                </ul>
+            </div>
+            <div class="sidebar-footer">
+                <button id="btn-settings" class="btn-settings">
+                    <i class="fas fa-cog"></i> Settings
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper glass">
+
+                <!-- Initial State / Input Section -->
+                <div id="input-section" class="active-section">
+                    <h2 class="section-title">Generar Meta Tags</h2>
+                    <p class="section-subtitle">Obtén títulos y descripciones optimizados para SEO con IA.</p>
+
+                    <div class="toggle-container">
+                        <input type="radio" id="mode-url" name="mode" value="url" checked>
+                        <label for="mode-url">URL</label>
+
+                        <input type="radio" id="mode-text" name="mode" value="text">
+                        <label for="mode-text">Texto Completo</label>
+
+                        <div class="toggle-slider"></div>
+                    </div>
+
+                    <!-- URL Input -->
+                    <div id="form-url" class="input-group active-form">
+                        <div class="input-wrapper">
+                            <i class="fas fa-link input-icon"></i>
+                            <input type="url" id="input-url" placeholder="https://ejemplo.com/pagina">
+                        </div>
+                        <button id="btn-process-url" class="btn-process">
+                            <i class="fas fa-paper-plane"></i> Generar
+                        </button>
+                    </div>
+
+                    <!-- Text Input -->
+                    <div id="form-text" class="input-group">
+                        <textarea id="input-text"
+                            placeholder="Pega el contenido completo de tu sitio web aquí..."></textarea>
+                        <button id="btn-process-text" class="btn-process">
+                            <i class="fas fa-magic"></i> Generar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading Section -->
+                <div id="loading-section" class="loading-container hidden">
+                    <span class="loader"></span>
+                    <p id="loading-text" class="loading-text">Analizando y generando...</p>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results-section" class="results-container hidden">
+                    <div class="results-header">
+                        <h2 id="result-title" class="result-title">Título del Item</h2>
+                        <!-- <h3>Resultados</h3> -->
+                    </div>
+                    <textarea id="output-text" readonly></textarea>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Templates -->
+    <template id="history-item-template">
+        <li class="history-item">
+            <div class="item-content">
+                <span class="item-title">Title</span>
+                <span class="item-date">Date</span>
+            </div>
+            <div class="item-actions">
+                <button class="btn-icon edit-item"><i class="fas fa-pen"></i></button>
+                <button class="btn-icon delete-item"><i class="fas fa-trash"></i></button>
+            </div>
+        </li>
+    </template>
+
+    <!-- Delete Modal -->
+    <div id="delete-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-icon"><i class="fas fa-trash"></i></div>
+            <h3>¿Eliminar Item?</h3>
+            <p>Esta acción no se puede deshacer.</p>
+            <div class="modal-actions">
+                <button id="btn-modal-cancel" class="btn-modal btn-cancel">Cancelar</button>
+                <button id="btn-modal-confirm" class="btn-modal btn-delete">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3>Configuración de Prompts</h3>
+                <button class="btn-icon close-settings"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="prompt-group">
+                    <h4><i class="fas fa-robot"></i> Análisis (OpenAI)</h4>
+                    <label>System Prompt</label>
+                    <textarea id="p-openai-sys" class="prompt-input"></textarea>
+
+                    <label>Human Instruction</label>
+                    <textarea id="p-openai-user" class="prompt-input"></textarea>
+                </div>
+
+                <div class="prompt-group">
+                    <h4><i class="fas fa-pen-nib"></i> Generación (Anthropic)</h4>
+                    <label>System Prompt</label>
+                    <textarea id="p-anthropic-sys" class="prompt-input"></textarea>
+
+                    <label>Human Instruction (Intro)</label>
+                    <textarea id="p-anthropic-user" class="prompt-input"></textarea>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button id="btn-cancel-settings" class="btn-modal btn-cancel">Cancelar</button>
+                <button id="btn-save-settings" class="btn-modal btn-save">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
