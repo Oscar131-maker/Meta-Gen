@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetaGen - Acceso</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .login-card {
+            background: var(--surface);
+            padding: 2.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 2rem;
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-family: inherit;
+            box-sizing: border-box;
+            transition: all 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-submit:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .error-msg {
+            color: #ef4444;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-card">
+        <span class="logo">MetaGen</span>
+        <div id="error-msg" class="error-msg">Credenciales incorrectas</div>
+        <form id="login-form">
+            <div class="form-group">
+                <label for="username">Usuario</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit" class="btn-submit">Ingresar</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const errorMsg = document.getElementById('error-msg');
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (res.ok) {
+                    window.location.href = '/';
+                } else {
+                    errorMsg.style.display = 'block';
+                }
+            } catch (err) {
+                console.error(err);
+                errorMsg.textContent = 'Error de conexión';
+                errorMsg.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+
+</html>

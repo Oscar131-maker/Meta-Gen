@@ -1,5 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, Depends, HTTPException, Request, Response, Form, status
+from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -7,6 +7,7 @@ from typing import List, Optional
 import json
 import os
 import asyncio
+import secrets
 from dotenv import load_dotenv
 
 # App imports
@@ -27,6 +28,71 @@ from dev.backend.utils.serp import search_google
 from dev.backend.utils.llm import analyze_content, generate_meta_tags
 
 app = FastAPI()
+
+# --- Auth Configuration ---
+APP_USERNAME = os.getenv("APP_USERNAME", "admin")
+APP_PASSWORD = os.getenv("APP_PASSWORD", "admin")
+# Simple secret session token
+SESSION_COOKIE_NAME = "metagen_session"
+SESSION_SECRET_VALUE = os.getenv("SESSION_SECRET", secrets.token_hex(16))
+
+# --- Middleware for Auth Protection ---
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    # Public paths
+    if request.url.path in ["/login", "/api/login", "/favicon.ico"]:
+         return await call_next(request)
+    
+    auth_cookie = request.cookies.get(SESSION_COOKIE_NAME)
+    
+    # Verify authentication
+    is_authenticated = False
+    if auth_cookie and secrets.compare_digest(auth_cookie, SESSION_SECRET_VALUE):
+        is_authenticated = True
+        
+    if not is_authenticated:
+        # If API request, return 401
+        if request.url.path.startswith("/api"):
+            return Response(status_code=status.HTTP_401_UNAUTHORIZED, content="Unauthorized")
+        
+        # If Page request (root or others), Redirect to Login
+        return RedirectResponse("/login")
+        
+    response = await call_next(request)
+    return response
+
+# --- Auth Endpoints ---
+@app.get("/login")
+async def login_page():
+    frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../frontend"))
+    return FileResponse(os.path.join(frontend_dir, "login.html"))
+
+@app.post("/api/login")
+async def login(username: str = Form(...), password: str = Form(...)):
+    # Constant time comparison
+    user_ok = secrets.compare_digest(username, APP_USERNAME)
+    pass_ok = secrets.compare_digest(password, APP_PASSWORD)
+    
+    if not (user_ok and pass_ok):
+        # Return error
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+    
+    response = Response(content=json.dumps({"status": "ok"}), media_type="application/json")
+    # Set session cookie (HttpOnly for security)
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME, 
+        value=SESSION_SECRET_VALUE, 
+        httponly=True, 
+        max_age=86400 * 7, # 7 days
+        samesite="lax"
+    )
+    return response
+
+@app.post("/api/logout")
+async def logout():
+    response = RedirectResponse("/login", status_code=302)
+    response.delete_cookie(SESSION_COOKIE_NAME)
+    return response
 
 from datetime import datetime
 
