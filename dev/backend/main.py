@@ -28,6 +28,8 @@ from dev.backend.utils.llm import analyze_content, generate_meta_tags
 
 app = FastAPI()
 
+from datetime import datetime
+
 # --- Pydantic Models ---
 
 class ProcessRequest(BaseModel):
@@ -43,7 +45,7 @@ class HistoryItemCreate(BaseModel):
 
 class HistoryItemResponse(HistoryItemCreate):
     id: int
-    created_at: Optional[str] = None # We ignore this field for frontend simple display
+    created_at: Optional[datetime] = None
     class Config:
         orm_mode = True
 
@@ -224,17 +226,21 @@ def get_history(db: Session = Depends(get_db)):
 
 @app.post("/api/history", response_model=HistoryItemResponse)
 def create_history(item: HistoryItemCreate, db: Session = Depends(get_db)):
-    db_item = models.DBHistoryItem(
-        title=item.title,
-        date_str=item.date_str,
-        full_input=item.full_input,
-        output=item.output,
-        type=item.type
-    )
-    db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+    try:
+        db_item = models.DBHistoryItem(
+            title=item.title,
+            date_str=item.date_str,
+            full_input=item.full_input,
+            output=item.output,
+            type=item.type
+        )
+        db.add(db_item)
+        db.commit()
+        db.refresh(db_item)
+        return db_item
+    except Exception as e:
+        print(f"CRITICAL DB ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/history/{item_id}")
 def delete_history(item_id: int, db: Session = Depends(get_db)):
