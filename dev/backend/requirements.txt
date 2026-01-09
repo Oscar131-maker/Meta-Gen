@@ -10,3 +10,4 @@ openai
 anthropic
 sqlalchemy
 psycopg2-binary
+python-multipart
