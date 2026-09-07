@@ -76,14 +76,14 @@ def generate_meta_tags(analysis_json, text_content, serp_results, openrouter_api
 {json.dumps(serp_results, ensure_ascii=False, indent=2)}
 """
 
-    print(f"DEBUG: Enviando consulta a OpenRouter (Claude 3.7 Sonnet)...")
+    print(f"DEBUG: Enviando consulta a OpenRouter (Claude Sonnet 5)...")
 
     response = client.chat.completions.create(
         extra_headers={
             "HTTP-Referer": "http://localhost:8000", # Local development
             "X-Title": "MetaGen Local",
         },
-        model="anthropic/claude-3.7-sonnet",
+        model="anthropic/claude-sonnet-5",
         temperature=0.3,
         messages=[
             {"role": "system", "content": system_prompt},
