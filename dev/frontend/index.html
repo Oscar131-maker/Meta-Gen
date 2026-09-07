@@ -33,6 +33,8 @@
                     <i class="fas fa-cog"></i> Settings
                 </button>
             </div>
+
+            <div class="sidebar-resizer" id="sidebar-resizer"></div>
         </aside>
 
         <!-- Main Content -->
@@ -117,6 +119,76 @@
             <div class="modal-actions">
                 <button id="btn-modal-cancel" class="btn-modal btn-cancel">Cancelar</button>
                 <button id="btn-modal-confirm" class="btn-modal btn-delete">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Row Template -->
+    <template id="bulk-row-template">
+        <li class="bulk-row" data-status="pending">
+            <div class="bulk-row-main">
+                <div class="bulk-row-type">
+                    <button type="button" class="bulk-type-btn active" data-type="url">
+                        <i class="fas fa-link"></i> URL
+                    </button>
+                    <button type="button" class="bulk-type-btn" data-type="text">
+                        <i class="fas fa-align-left"></i> Texto
+                    </button>
+                </div>
+                <div class="bulk-row-content">
+                    <input type="url" class="bulk-input-url" placeholder="https://ejemplo.com/pagina">
+                    <textarea class="bulk-input-text hidden" placeholder="Pega el contenido completo aquí..."></textarea>
+                    <div class="bulk-row-error hidden"></div>
+                </div>
+            </div>
+            <div class="bulk-row-side">
+                <span class="bulk-row-status" title="Estado">
+                    <i class="fas fa-clock status-icon-pending"></i>
+                    <i class="fas fa-spinner fa-spin status-icon-processing hidden"></i>
+                    <i class="fas fa-check-circle status-icon-success hidden"></i>
+                    <i class="fas fa-times-circle status-icon-error hidden"></i>
+                </span>
+                <button type="button" class="btn-icon bulk-view-btn hidden" title="Ver resultado">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button type="button" class="btn-icon bulk-remove-btn" title="Eliminar fila">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </li>
+    </template>
+
+    <!-- Bulk Modal -->
+    <div id="bulk-modal" class="modal-overlay">
+        <div class="modal modal-lg modal-bulk">
+            <div class="modal-header">
+                <h3><i class="fas fa-layer-group"></i> Procesar en Lote</h3>
+                <button class="btn-icon close-bulk"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div class="modal-body bulk-modal-body">
+                <div class="bulk-toolbar">
+                    <p class="bulk-hint">Agrega varias URLs o textos completos y genera todos sus Meta Tags en una sola tanda.</p>
+                    <button id="btn-bulk-add-row" class="btn-add-row">
+                        <i class="fas fa-plus"></i> Agregar fila
+                    </button>
+                </div>
+                <ul id="bulk-rows-list" class="bulk-rows-list"></ul>
+            </div>
+
+            <div class="bulk-footer">
+                <div class="bulk-progress-wrap">
+                    <div class="bulk-progress-bar">
+                        <div id="bulk-progress-fill" class="bulk-progress-fill"></div>
+                    </div>
+                    <span id="bulk-progress-text">Listo para procesar</span>
+                </div>
+                <div class="modal-actions">
+                    <button id="btn-bulk-cancel" class="btn-modal btn-cancel">Cerrar</button>
+                    <button id="btn-bulk-process" class="btn-modal btn-save" disabled>
+                        <i class="fas fa-bolt"></i> Procesar Lote
+                    </button>
+                </div>
             </div>
         </div>
     </div>

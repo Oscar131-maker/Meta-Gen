@@ -116,6 +116,61 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Processes
+
+    // Shared streaming call to /api/process. Returns { finalOutput, detectedKeyword }.
+    // onMessage(data) is invoked for every NDJSON message received.
+    async function runProcess(type, content, onMessage) {
+        const response = await fetch('/api/process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, content })
+        });
+
+        if (!response.ok) throw new Error('Error en el servidor');
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let finalOutput = null;
+        let detectedKeyword = null;
+        let errorMessage = null;
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                try {
+                    const data = JSON.parse(line);
+
+                    if (onMessage) onMessage(data);
+
+                    // Capture the detected main keyword from the OpenAI analysis step
+                    if (data.status === 'success' && data.data && data.data.palabra_clave_principal) {
+                        detectedKeyword = data.data.palabra_clave_principal;
+                    }
+
+                    if (data.status === 'complete') {
+                        finalOutput = data.data;
+                    } else if (data.status === 'error') {
+                        errorMessage = data.message;
+                    }
+                } catch (e) {
+                    console.error('JSON Parse error:', e);
+                }
+            }
+        }
+
+        if (finalOutput === null) {
+            throw new Error(errorMessage || 'No se generó ningún resultado.');
+        }
+
+        return { finalOutput, detectedKeyword };
+    }
+
     async function startProcess(type) {
         let content = '';
         if (type === 'url') {
@@ -137,52 +192,18 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingText.textContent = 'Iniciando sistema...';
 
         try {
-            const response = await fetch('/api/process', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type, content })
+            const { finalOutput, detectedKeyword } = await runProcess(type, content, (data) => {
+                if (data.message) {
+                    loadingText.textContent = data.message;
+                }
             });
 
-            if (!response.ok) throw new Error('Error en el servidor');
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let finalOutput = "";
-
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
-
-                for (const line of lines) {
-                    if (!line.trim()) continue;
-                    try {
-                        const data = JSON.parse(line);
-
-                        // Update loading text with process status
-                        if (data.message) {
-                            loadingText.textContent = data.message;
-                        }
-
-                        if (data.status === 'complete') {
-                            finalOutput = data.data;
-                            // Save via API
-                            const newItem = await saveHistory(type, content, finalOutput);
-                            if (newItem) {
-                                loadHistoryItem(newItem);
-                            }
-                        } else if (data.status === 'error') {
-                            loadingText.textContent = `Error: ${data.message}`;
-                        }
-                    } catch (e) {
-                        console.error('JSON Parse error:', e);
-                    }
-                }
+            const newItem = await saveHistory(type, content, finalOutput, detectedKeyword);
+            if (newItem) {
+                loadHistoryItem(newItem);
             }
         } catch (e) {
-            loadingText.textContent = `Error de conexión: ${e.message}`;
+            loadingText.textContent = `Error: ${e.message}`;
             setTimeout(() => inputSection.classList.remove('hidden'), 2000);
         }
     }
@@ -193,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
         outputText.value = text;
     }
 
-    async function saveHistory(type, inputContent, output) {
+    async function saveHistory(type, inputContent, output, detectedKeyword = null) {
         const dateStr = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
         let title = "Sin título";
@@ -214,6 +235,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (e) {
                 title = inputContent.substring(0, 20);
             }
+        } else if (detectedKeyword) {
+            // Use the AI-detected main keyword as the history item title
+            title = detectedKeyword;
         } else {
             const count = history.filter(h => h.title.includes('Sin título')).length + 1;
             title = `Sin título ${count}`;
@@ -426,5 +450,227 @@ document.addEventListener('DOMContentLoaded', () => {
     // Close settings on outside click
     settingsModal.addEventListener('click', (e) => {
         if (e.target === settingsModal) closeSettings();
+    });
+
+    // Sidebar Resize Logic
+    const sidebar = document.getElementById('sidebar');
+    const sidebarResizer = document.getElementById('sidebar-resizer');
+    const SIDEBAR_MIN_WIDTH = 240;
+    const SIDEBAR_MAX_WIDTH = 480;
+    const SIDEBAR_STORAGE_KEY = 'metagen_sidebar_width';
+
+    const savedSidebarWidth = parseInt(localStorage.getItem(SIDEBAR_STORAGE_KEY), 10);
+    if (!isNaN(savedSidebarWidth)) {
+        const clamped = Math.min(Math.max(savedSidebarWidth, SIDEBAR_MIN_WIDTH), SIDEBAR_MAX_WIDTH);
+        sidebar.style.width = `${clamped}px`;
+    }
+
+    let isResizingSidebar = false;
+    let pendingSidebarWidth = null;
+    let sidebarRafScheduled = false;
+
+    sidebarResizer.addEventListener('mousedown', (e) => {
+        isResizingSidebar = true;
+        sidebarResizer.classList.add('active');
+        document.body.classList.add('sidebar-resizing');
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizingSidebar) return;
+
+        pendingSidebarWidth = Math.min(Math.max(e.clientX, SIDEBAR_MIN_WIDTH), SIDEBAR_MAX_WIDTH);
+
+        if (!sidebarRafScheduled) {
+            sidebarRafScheduled = true;
+            requestAnimationFrame(() => {
+                sidebar.style.width = `${pendingSidebarWidth}px`;
+                sidebarRafScheduled = false;
+            });
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (!isResizingSidebar) return;
+        isResizingSidebar = false;
+        sidebarResizer.classList.remove('active');
+        document.body.classList.remove('sidebar-resizing');
+        localStorage.setItem(SIDEBAR_STORAGE_KEY, parseInt(sidebar.style.width, 10));
+    });
+
+    // Bulk Processing Logic
+    const btnBulk = document.getElementById('btn-bulk');
+    const bulkModal = document.getElementById('bulk-modal');
+    const btnCloseBulk = document.querySelector('.close-bulk');
+    const bulkRowsList = document.getElementById('bulk-rows-list');
+    const btnBulkAddRow = document.getElementById('btn-bulk-add-row');
+    const btnBulkProcess = document.getElementById('btn-bulk-process');
+    const btnBulkCancel = document.getElementById('btn-bulk-cancel');
+    const bulkProgressFill = document.getElementById('bulk-progress-fill');
+    const bulkProgressText = document.getElementById('bulk-progress-text');
+    const bulkRowTemplate = document.getElementById('bulk-row-template');
+
+    let isBulkProcessing = false;
+
+    function updateBulkProcessButtonState() {
+        const rowCount = bulkRowsList.querySelectorAll('.bulk-row').length;
+        btnBulkProcess.disabled = rowCount === 0 || isBulkProcessing;
+    }
+
+    function createBulkRow() {
+        const clone = bulkRowTemplate.content.cloneNode(true);
+        const li = clone.querySelector('.bulk-row');
+
+        const typeButtons = li.querySelectorAll('.bulk-type-btn');
+        const urlInput = li.querySelector('.bulk-input-url');
+        const textInput = li.querySelector('.bulk-input-text');
+        const removeBtn = li.querySelector('.bulk-remove-btn');
+
+        typeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (isBulkProcessing) return;
+                typeButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const isUrl = btn.dataset.type === 'url';
+                urlInput.classList.toggle('hidden', !isUrl);
+                textInput.classList.toggle('hidden', isUrl);
+            });
+        });
+
+        removeBtn.addEventListener('click', () => {
+            if (isBulkProcessing) return;
+            li.remove();
+            updateBulkProcessButtonState();
+        });
+
+        bulkRowsList.appendChild(li);
+        updateBulkProcessButtonState();
+        return li;
+    }
+
+    function setBulkRowStatus(li, status, message = '') {
+        li.dataset.status = status;
+
+        li.querySelectorAll('.bulk-row-status i').forEach(icon => icon.classList.add('hidden'));
+        const iconSelectorMap = {
+            pending: '.status-icon-pending',
+            processing: '.status-icon-processing',
+            success: '.status-icon-success',
+            error: '.status-icon-error'
+        };
+        const activeIcon = li.querySelector(iconSelectorMap[status]);
+        if (activeIcon) activeIcon.classList.remove('hidden');
+
+        const errorEl = li.querySelector('.bulk-row-error');
+        if (status === 'error') {
+            errorEl.textContent = message;
+            errorEl.classList.remove('hidden');
+        } else {
+            errorEl.classList.add('hidden');
+        }
+    }
+
+    function resetBulkModal() {
+        bulkRowsList.innerHTML = '';
+        createBulkRow();
+        bulkProgressText.textContent = 'Listo para procesar';
+        bulkProgressFill.style.width = '0%';
+        btnBulkAddRow.disabled = false;
+        isBulkProcessing = false;
+        updateBulkProcessButtonState();
+    }
+
+    function openBulkModal() {
+        bulkModal.classList.add('active');
+        if (bulkRowsList.children.length === 0) {
+            createBulkRow();
+        }
+    }
+
+    function closeBulkModal() {
+        if (isBulkProcessing) {
+            const confirmClose = confirm('El procesamiento en lote sigue en curso. ¿Deseas cerrar de todas formas?');
+            if (!confirmClose) return;
+        }
+        bulkModal.classList.remove('active');
+    }
+
+    btnBulk.addEventListener('click', () => {
+        resetBulkModal();
+        openBulkModal();
+    });
+    btnCloseBulk.addEventListener('click', closeBulkModal);
+    btnBulkCancel.addEventListener('click', closeBulkModal);
+    btnBulkAddRow.addEventListener('click', createBulkRow);
+
+    bulkModal.addEventListener('click', (e) => {
+        if (e.target === bulkModal) closeBulkModal();
+    });
+
+    btnBulkProcess.addEventListener('click', async () => {
+        if (isBulkProcessing) return;
+
+        const rows = Array.from(bulkRowsList.querySelectorAll('.bulk-row'));
+        if (rows.length === 0) return;
+
+        const jobs = [];
+        for (const li of rows) {
+            const activeBtn = li.querySelector('.bulk-type-btn.active');
+            const type = activeBtn ? activeBtn.dataset.type : 'url';
+            const content = type === 'url'
+                ? li.querySelector('.bulk-input-url').value.trim()
+                : li.querySelector('.bulk-input-text').value.trim();
+
+            if (!content) {
+                setBulkRowStatus(li, 'error', 'Contenido vacío');
+                continue;
+            }
+            setBulkRowStatus(li, 'pending');
+            jobs.push({ li, type, content });
+        }
+
+        if (jobs.length === 0) {
+            alert('Agrega al menos una fila con contenido válido antes de procesar.');
+            return;
+        }
+
+        isBulkProcessing = true;
+        btnBulkProcess.disabled = true;
+        btnBulkAddRow.disabled = true;
+
+        const total = jobs.length;
+        let completed = 0;
+        bulkProgressText.textContent = `0 de ${total} completados`;
+        bulkProgressFill.style.width = '0%';
+
+        for (const job of jobs) {
+            setBulkRowStatus(job.li, 'processing');
+            try {
+                const { finalOutput, detectedKeyword } = await runProcess(job.type, job.content);
+                const newItem = await saveHistory(job.type, job.content, finalOutput, detectedKeyword);
+
+                if (newItem) {
+                    setBulkRowStatus(job.li, 'success');
+                    const viewBtn = job.li.querySelector('.bulk-view-btn');
+                    viewBtn.classList.remove('hidden');
+                    viewBtn.addEventListener('click', () => {
+                        closeBulkModal();
+                        loadHistoryItem(newItem);
+                    });
+                } else {
+                    setBulkRowStatus(job.li, 'error', 'No se pudo guardar en el historial');
+                }
+            } catch (e) {
+                setBulkRowStatus(job.li, 'error', e.message || 'Error al procesar');
+            }
+
+            completed++;
+            bulkProgressText.textContent = `${completed} de ${total} completados`;
+            bulkProgressFill.style.width = `${(completed / total) * 100}%`;
+        }
+
+        isBulkProcessing = false;
+        btnBulkAddRow.disabled = false;
+        updateBulkProcessButtonState();
     });
 });
